@@ -69,33 +69,37 @@ function splitCategories(str) {
     return (str || '').split(/[・､，、]+/).filter(s => s);
 }
 
-function renderRows(rows) {
+function renderCategories(catMap) {
     $('#accordion').empty();
-    rows.forEach((row, i) => {
-        const name = row[allHeaders.findIndex(h => /名称|医療機関|病院|クリニック/i.test(h))] || '';
-        const category = row[categoryIdx] || '';
-        const time = "9:00～17:00";
-        const tel = row[allHeaders.findIndex(h => /電話|電話番号/i.test(h))] || '';
-        const addr = row[allHeaders.findIndex(h => /住所|所在地/i.test(h))] || '';
-        const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+    Object.keys(catMap).sort().forEach((cat, i) => {
         const isAlt = i % 2 === 1;
         const collapseId = `collapse${i}`;
         const headingId = `heading${i}`;
+        let listHtml = '';
+        catMap[cat].forEach(row => {
+            const name = row[allHeaders.findIndex(h => /名称|医療機関|病院|クリニック/i.test(h))] || '';
+            const time = "9:00～17:00";
+            const tel = row[allHeaders.findIndex(h => /電話|電話番号/i.test(h))] || '';
+            const addr = row[allHeaders.findIndex(h => /住所|所在地/i.test(h))] || '';
+            const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
+            listHtml += `
+              <div class="hospital-item">
+                <div class="hospital-name">${name}</div>
+                <div>時間: <span>${time}</span></div>
+                <div><span class="icon">📞</span><a href="tel:${tel}">${tel}</a></div>
+                <div><span class="icon">📍</span><a href="${mapLink}" target="_blank">${addr}</a></div>
+              </div>`;
+        });
         const html = `
         <div class="panel panel-default">
           <div class="panel-heading${isAlt ? ' stripe-alt' : ''}" id="${headingId}" data-collapse="${collapseId}" style="user-select:none; cursor:pointer;">
             <div class="panel-title" style="color:inherit; text-decoration:none;">
-              <span class="namecat">
-                <span class="name">${name}</span><br>
-                <span class="cat">（${category}）</span>
-              </span>
+              ${cat}
             </div>
           </div>
           <div id="${collapseId}" class="panel-collapse" style="display:none;">
             <div class="panel-body">
-              <div>時間: <span>${time}</span></div>
-              <div><span class="icon">📞</span><a href="tel:${tel}">${tel}</a></div>
-              <div><span class="icon">📍</span><a href="${mapLink}" target="_blank">${addr}</a></div>
+              ${listHtml}
             </div>
           </div>
         </div>`;
@@ -141,28 +145,15 @@ $(function() {
             }
             $('#date').text(`${holiday.date} の当番医`);
 
-            const catSet = new Set();
-            allRows.forEach(r => splitCategories(r[categoryIdx]).forEach(c => catSet.add(c)));
-            const categories = Array.from(catSet).sort();
-            const btnArea = $('#category-buttons');
-            btnArea.empty();
-            btnArea.append('<button class="category-button active" data-cat="">すべて</button>');
-            categories.forEach(c => {
-                btnArea.append(`<button class="category-button" data-cat="${c}">${c}</button>`);
-            });
-            $('.category-button').on('click', function(){
-                const cat = $(this).data('cat');
-                $('.category-button').removeClass('active');
-                $(this).addClass('active');
-                if (cat) {
-                    const filtered = allRows.filter(r => splitCategories(r[categoryIdx]).includes(cat));
-                    renderRows(filtered);
-                } else {
-                    renderRows(allRows);
-                }
+            const catMap = {};
+            allRows.forEach(r => {
+                splitCategories(r[categoryIdx]).forEach(c => {
+                    if (!catMap[c]) catMap[c] = [];
+                    catMap[c].push(r);
+                });
             });
 
-            renderRows(allRows);
+            renderCategories(catMap);
         })
         .catch(err => $('#date').text('CSV取得に失敗しました: ' + err));
 });
