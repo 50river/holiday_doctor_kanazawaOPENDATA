@@ -61,22 +61,22 @@ function pickLatestHoliday(records, dateIdx) {
     return null;
 }
 
-function display(holiday, headers) {
-    if (holiday.type === "past") {
-        $('#latest-message').html(
-          `最新の情報がオープンデータで公開されていません（${holiday.date}まで掲載）`
-        );
-    } else {
-        $('#latest-message').html("");
-    }
-    $('#date').text(`${holiday.date} の当番医`);
+let allRows = [];
+let allHeaders = [];
+let categoryIdx = -1;
+
+function splitCategories(str) {
+    return (str || '').split(/[・､，、]+/).filter(s => s);
+}
+
+function renderRows(rows) {
     $('#accordion').empty();
-    holiday.rows.forEach((row, i) => {
-        const name = row[headers.findIndex(h => /名称|医療機関|病院|クリニック/i.test(h))] || '';
-        const category = row[headers.findIndex(h => /診療科目|科/i.test(h))] || '';
+    rows.forEach((row, i) => {
+        const name = row[allHeaders.findIndex(h => /名称|医療機関|病院|クリニック/i.test(h))] || '';
+        const category = row[categoryIdx] || '';
         const time = "9:00～17:00";
-        const tel = row[headers.findIndex(h => /電話|電話番号/i.test(h))] || '';
-        const addr = row[headers.findIndex(h => /住所|所在地/i.test(h))] || '';
+        const tel = row[allHeaders.findIndex(h => /電話|電話番号/i.test(h))] || '';
+        const addr = row[allHeaders.findIndex(h => /住所|所在地/i.test(h))] || '';
         const mapLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addr)}`;
         const isAlt = i % 2 === 1;
         const collapseId = `collapse${i}`;
@@ -94,20 +94,17 @@ function display(holiday, headers) {
           <div id="${collapseId}" class="panel-collapse" style="display:none;">
             <div class="panel-body">
               <div>時間: <span>${time}</span></div>
-              <div>電話: <a href="tel:${tel}">${tel}</a></div>
-              <div>住所: <a href="${mapLink}" target="_blank">${addr}</a></div>
+              <div><span class="icon">📞</span><a href="tel:${tel}">${tel}</a></div>
+              <div><span class="icon">📍</span><a href="${mapLink}" target="_blank">${addr}</a></div>
             </div>
           </div>
         </div>`;
         $('#accordion').append(html);
     });
 
-    // アコーディオン機能
     $('#accordion .panel-heading').off('click').on('click', function() {
         const target = $(this).attr('data-collapse');
-        // 他を閉じる（アコーディオン動作）
         $('#accordion .panel-collapse').not('#' + target).slideUp(200);
-        // 自分はトグル
         $('#' + target).slideToggle(200);
     });
 }
@@ -123,16 +120,49 @@ $(function() {
                 type: 'string'
             });
             const rows = parseCSV(unicodeString);
-            let headers = rows.shift();
-            headers = headers.map(h => h.replace(/^\uFEFF/, ''));
-            let dateIdx = headers.findIndex(h => h === "日付");
+            allHeaders = rows.shift().map(h => h.replace(/^\uFEFF/, ''));
+            let dateIdx = allHeaders.findIndex(h => h === "日付");
             if (dateIdx === -1) {
                 $('#date').text('日付カラムが見つかりませんでした');
                 return;
             }
             const holiday = pickLatestHoliday(rows, dateIdx);
-            if (holiday) display(holiday, headers);
-            else $('#date').text('該当するデータがありません');
+            if (!holiday) {
+                $('#date').text('該当するデータがありません');
+                return;
+            }
+            allRows = holiday.rows;
+            categoryIdx = allHeaders.findIndex(h => /診療科目|科/i.test(h));
+
+            if (holiday.type === "past") {
+                $('#latest-message').html(`最新の情報がオープンデータで公開されていません（${holiday.date}まで掲載）`);
+            } else {
+                $('#latest-message').html("");
+            }
+            $('#date').text(`${holiday.date} の当番医`);
+
+            const catSet = new Set();
+            allRows.forEach(r => splitCategories(r[categoryIdx]).forEach(c => catSet.add(c)));
+            const categories = Array.from(catSet).sort();
+            const btnArea = $('#category-buttons');
+            btnArea.empty();
+            btnArea.append('<button class="category-button active" data-cat="">すべて</button>');
+            categories.forEach(c => {
+                btnArea.append(`<button class="category-button" data-cat="${c}">${c}</button>`);
+            });
+            $('.category-button').on('click', function(){
+                const cat = $(this).data('cat');
+                $('.category-button').removeClass('active');
+                $(this).addClass('active');
+                if (cat) {
+                    const filtered = allRows.filter(r => splitCategories(r[categoryIdx]).includes(cat));
+                    renderRows(filtered);
+                } else {
+                    renderRows(allRows);
+                }
+            });
+
+            renderRows(allRows);
         })
         .catch(err => $('#date').text('CSV取得に失敗しました: ' + err));
 });
