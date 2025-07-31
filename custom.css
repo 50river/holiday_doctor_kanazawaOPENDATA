@@ -110,23 +110,13 @@ a {
   font-size: 1.2em;
 }
 
-#category-buttons {
-  text-align: center;
-  margin: 1em auto;
+.hospital-item {
+  margin: 1em 0;
 }
 
-.category-button {
-  margin: 0.2em;
-  padding: 0.4em 0.8em;
-  background: #e0e0e0;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.category-button.active {
-  background: #17b6a3;
-  color: #fff;
+.hospital-name {
+  font-weight: bold;
+  margin-bottom: 0.2em;
 }
 
 .icon {
