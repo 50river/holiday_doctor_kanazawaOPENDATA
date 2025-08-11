@@ -43,13 +43,16 @@ function pickLatestHoliday(records, dateIdx) {
     records.forEach(row => {
         const d = parseDate(row[dateIdx]);
         if (!d) return;
-        const key = d.toISOString().split('T')[0];
+        // ローカルタイムゾーンのまま日付文字列を生成し、UTC 変換によるズレを防ぐ
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!data[key]) data[key] = [];
         data[key].push(row);
     });
     const keys = Object.keys(data).sort();
     for (const k of keys) {
-        const d = new Date(k);
+        const [y, m, day] = k.split('-').map(Number);
+        // 文字列からローカルタイムとしてDateを生成し、日付比較の誤差を防ぐ
+        const d = new Date(y, m - 1, day);
         if (d >= new Date(today.getFullYear(), today.getMonth(), today.getDate())) {
             return { type: "future", date: data[k][0][dateIdx], rows: data[k] };
         }
