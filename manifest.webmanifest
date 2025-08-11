@@ -1,0 +1,12 @@
+{
+  "name": "金沢市 休日当番医",
+  "short_name": "当番医(金沢)",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f6f8fa",
+  "theme_color": "#17b6a3",
+  "icons": [
+    { "src": "Android.png", "sizes": "256x256", "type": "image/png" },
+    { "src": "ios.png", "sizes": "180x180", "type": "image/png", "purpose":"any" }
+  ]
+}
