@@ -1,4 +1,6 @@
-const CSV_URL = 'https://catalog-data.city.kanazawa.ishikawa.jp/dataset/a65a835b-428c-4ca4-bb20-31259fafcf71/resource/3afcebc5-815f-4e4f-a948-108b4a3e00d4/download/kyujitutoubani.csv';
+// 金沢市オープンデータ API から最新 CSV を取得するための設定
+const DATASET_ID = '172014-toubani';
+const API_URL = `https://catalog-data.city.kanazawa.ishikawa.jp/api/3/action/package_show?id=${DATASET_ID}`;
 
 // --- CSV utilities ---
 function parseCSV(text) {
@@ -139,14 +141,28 @@ function renderCategories(catMap) {
 $(function() {
     $('#to-top').on('click', () => window.scrollTo({top:0, behavior:'smooth'}));
 
-    fetch(CSV_URL)
+    // APIから最新のCSVを取得
+    fetch(API_URL)
+        .then(res => res.json())
+        .then(pkg => {
+            const resource = (pkg.result.resources || []).find(r => /csv/i.test(r.format));
+            if (!resource) throw new Error('CSVリソースが見つかりません');
+            return fetch(resource.url || resource.download_url);
+        })
         .then(res => res.arrayBuffer())
         .then(buf => {
             const uint8Array = new Uint8Array(buf);
-            const unicodeString = Encoding.convert(uint8Array, { to: 'UNICODE', from: 'SJIS', type: 'string' });
-            const rows = parseCSV(unicodeString);
+            // まずShift_JISとして解析
+            let text = Encoding.convert(uint8Array, { to: 'UNICODE', from: 'SJIS', type: 'string' });
+            let rows = parseCSV(text);
             allHeaders = rows.shift().map(h => h.replace(/^\uFEFF/, ''));
-            const dateIdx = allHeaders.findIndex(h => h === "日付");
+            // 日付列が見つからない場合はUTF-8として再解析
+            if (allHeaders.findIndex(h => /(日付|年月日|診療日)/.test(h)) === -1) {
+                text = new TextDecoder('utf-8').decode(uint8Array);
+                rows = parseCSV(text);
+                allHeaders = rows.shift().map(h => h.replace(/^\uFEFF/, ''));
+            }
+            const dateIdx = allHeaders.findIndex(h => /(日付|年月日|診療日)/.test(h));
             if (dateIdx === -1) { $('#date').text('日付カラムが見つかりませんでした'); return; }
 
             nameIdx = allHeaders.findIndex(h => /名称|医療機関|病院|クリニック/i.test(h));
